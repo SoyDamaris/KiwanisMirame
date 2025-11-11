@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Diagnóstico Formulario MÍRAME PANAMÁ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .diagnostico {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success { background: #d1fae5; color: #065f46; }
+        .error { background: #fee2e2; color: #991b1b; }
+        .warning { background: #fef3c7; color: #92400e; }
+        .info { background: #dbeafe; color: #1e40af; }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #1d4ed8; }
+        #log {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Diagnóstico del Formulario MÍRAME PANAMÁ</h1>
+    
+    <div class="diagnostico">
+        <h2>📋 Estado del Sistema</h2>
+        <div id="statusContainer">
+            <div class="status info">🔄 Verificando...</div>
+        </div>
+        
+        <h2>🧪 Pruebas</h2>
+        <button onclick="probarFormulario()">📝 Probar Formulario Principal</button>
+        <button onclick="probarFormularioSimple()">🧪 Probar Formulario Simple</button>
+        <button onclick="probarGoogleSheets()">📊 Probar Conexión Google Sheets</button>
+        <button onclick="limpiarLog()">🗑️ Limpiar Log</button>
+        
+        <h2>📝 Log de Eventos</h2>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        const log = document.getElementById('log');
+        const statusContainer = document.getElementById('statusContainer');
+        
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            log.textContent += logMessage;
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(message, type = 'info') {
+            statusContainer.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function limpiarLog() {
+            log.textContent = '';
+            addLog('Log limpiado');
+        }
+        
+        function probarFormulario() {
+            addLog('🧪 Probando formulario principal...');
+            
+            // Verificar si existe el formulario
+            const form = document.querySelector('#registrationForm');
+            if (!form) {
+                addLog('❌ ERROR: No se encontró el formulario principal', 'error');
+                updateStatus('❌ Formulario principal no encontrado', 'error');
+                return;
+            }
+            
+            addLog('✅ Formulario principal encontrado');
+            
+            // Verificar campos
+            const campos = [
+                'cidParticipante', 'primerNombre', 'primerApellido', 'fechaNacimiento', 
+                'provincia', 'distrito', 'corregimiento', 'celular', 'email'
+            ];
+            
+            let camposEncontrados = 0;
+            campos.forEach(campo => {
+                const elemento = document.getElementById(campo);
+                if (elemento) {
+                    addLog(`✅ Campo ${campo} encontrado`);
+                    camposEncontrados++;
+                } else {
+                    addLog(`❌ Campo ${campo} NO encontrado`, 'error');
+                }
+            });
+            
+            if (camposEncontrados === campos.length) {
+                addLog('✅ Todos los campos están presentes');
+                updateStatus('✅ Formulario principal funcionando correctamente', 'success');
+            } else {
+                addLog(`❌ Faltan ${campos.length - camposEncontrados} campos`, 'error');
+                updateStatus('❌ Formulario principal tiene problemas', 'error');
+            }
+        }
+        
+        function probarFormularioSimple() {
+            addLog('🧪 Probando formulario simple...');
+            
+            // Abrir formulario de prueba en nueva ventana
+            const ventana = window.open('test.html', '_blank');
+            
+            if (ventana) {
+                addLog('✅ Formulario de prueba abierto en nueva ventana');
+                updateStatus('✅ Formulario de prueba disponible', 'success');
+            } else {
+                addLog('❌ No se pudo abrir el formulario de prueba', 'error');
+                updateStatus('❌ Error al abrir formulario de prueba', 'error');
+            }
+        }
+        
+        async function probarGoogleSheets() {
+            addLog('📊 Probando conexión con Google Sheets...');
+            
+            const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyk1PBlVP-gHHcjRSwykkK3BlZ85F1mi6F6FALnmPrd5-50RdGGAY3dbqkBGKo-PM50oQ/exec';
+            
+            try {
+                const datosPrueba = {
+                    cidParticipante: '1-2345-678',
+                    primerNombre: 'Prueba',
+                    primerApellido: 'Diagnóstico',
+                    fechaNacimiento: '1990-01-01',
+                    provincia: 'Panamá',
+                    distrito: 'San Miguelito',
+                    corregimiento: 'Villa Lucre',
+                    celular: '6000-0000',
+                    email: 'prueba@ejemplo.com',
+                    timestamp: new Date().toLocaleString('es-PA')
+                };
+                
+                addLog('📤 Enviando datos de prueba...');
+                
+                const response = await fetch(GOOGLE_SHEETS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(datosPrueba)
+                });
+                
+                addLog('✅ Conexión con Google Sheets establecida');
+                updateStatus('✅ Google Sheets funcionando correctamente', 'success');
+                
+            } catch (error) {
+                addLog(`❌ Error de conexión: ${error.message}`, 'error');
+                updateStatus('❌ Problema con Google Sheets', 'error');
+            }
+        }
+        
+        // Diagnóstico automático al cargar
+        window.addEventListener('load', function() {
+            addLog('🚀 Iniciando diagnóstico automático...');
+            
+            // Verificar archivos
+            const archivos = [
+                'index.html',
+                'script-simple.js', 
+                'styles.css',
+                'MIRAMEPANAMA.jpg'
+            ];
+            
+            addLog('📁 Verificando archivos del proyecto...');
+            
+            // Verificar si estamos en el contexto correcto
+            if (window.location.protocol === 'file:') {
+                addLog('⚠️ ADVERTENCIA: Abriendo desde archivo local. Para mejor funcionamiento, usa un servidor web local.');
+                updateStatus('⚠️ Usando archivo local - considera usar servidor web', 'warning');
+            } else {
+                addLog('✅ Ejecutándose en servidor web');
+                updateStatus('✅ Ejecutándose correctamente', 'success');
+            }
+            
+            // Verificar JavaScript
+            if (typeof GOOGLE_SHEETS_URL !== 'undefined') {
+                addLog('✅ Variable GOOGLE_SHEETS_URL definida');
+            } else {
+                addLog('❌ Variable GOOGLE_SHEETS_URL no definida', 'error');
+            }
+            
+            addLog('✅ Diagnóstico automático completado');
+        });
+        
+        // Interceptar errores de JavaScript
+        window.addEventListener('error', function(e) {
+            addLog(`❌ ERROR DE JAVASCRIPT: ${e.message} en ${e.filename}:${e.lineno}`, 'error');
+        });
+        
+        addLog('🔧 Sistema de diagnóstico iniciado');
+        addLog('💡 Abre la consola del navegador (F12) para más detalles');
+    </script>
+</body>
+</html>

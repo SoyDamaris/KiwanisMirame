@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KIWANIS MÍRAME PANAMÁ - Formulario de Registro</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="form-wrapper">
+            <!-- Logo Section -->
+            <div class="logo-section">
+                <img src="kiwanis.png" alt="KIWANIS MÍRAME PANAMÁ Logo" class="main-logo">
+                <p class="slogan">"Club Kiwanis Mírame Panamá"</p>
+                <div class="instagram-link">
+                    <i class="fab fa-instagram"></i>
+                    <a href="https://www.instagram.com/kiwanismiramepanama/" target="_blank">@kiwanismiramepanama</a>
+                </div>
+                <p class="subtitle">Formulario de Registro</p>
+            </div>
+
+            <!-- Form Section -->
+            <form id="registrationForm" class="registration-form">
+                <div class="form-group">
+                    <label for="cidParticipante" class="form-label">
+                        <i class="fas fa-id-card"></i>
+                        C.I.-Participante (7-9 dígitos) *
+                    </label>
+                    <input type="text" id="cidParticipante" name="cidParticipante" class="form-input" placeholder="Ej: 1-2345-678 o 12345678" required>
+                    <span class="error-message" id="cidParticipante-error"></span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="primerNombre" class="form-label">
+                            <i class="fas fa-user"></i>
+                            Primer Nombre *
+                        </label>
+                        <input type="text" id="primerNombre" name="primerNombre" class="form-input" required>
+                        <span class="error-message" id="primerNombre-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="primerApellido" class="form-label">
+                            <i class="fas fa-user"></i>
+                            Primer Apellido *
+                        </label>
+                        <input type="text" id="primerApellido" name="primerApellido" class="form-input" required>
+                        <span class="error-message" id="primerApellido-error"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="fechaNacimiento" class="form-label">
+                        <i class="fas fa-calendar-alt"></i>
+                        Fecha de Nacimiento (Año/Mes/Día) *
+                    </label>
+                    <input type="date" id="fechaNacimiento" name="fechaNacimiento" class="form-input" required>
+                    <span class="error-message" id="fechaNacimiento-error"></span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="provincia" class="form-label">
+                            <i class="fas fa-map-marker-alt"></i>
+                            Provincia *
+                        </label>
+                        <select id="provincia" name="provincia" class="form-input" required>
+                            <option value="">Selecciona una provincia</option>
+                            <option value="Bocas del Toro">Bocas del Toro</option>
+                            <option value="Coclé">Coclé</option>
+                            <option value="Colón">Colón</option>
+                            <option value="Chiriquí">Chiriquí</option>
+                            <option value="Darién">Darién</option>
+                            <option value="Herrera">Herrera</option>
+                            <option value="Los Santos">Los Santos</option>
+                            <option value="Panamá">Panamá</option>
+                            <option value="Panamá Oeste">Panamá Oeste</option>
+                            <option value="Veraguas">Veraguas</option>
+                            <option value="Guna Yala">Guna Yala</option>
+                            <option value="Emberá-Wounaan">Emberá-Wounaan</option>
+                            <option value="Ngäbe-Buglé">Ngäbe-Buglé</option>
+                        </select>
+                        <span class="error-message" id="provincia-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="distrito" class="form-label">
+                            <i class="fas fa-map-marker-alt"></i>
+                            Distrito *
+                        </label>
+                        <input type="text" id="distrito" name="distrito" class="form-input" required>
+                        <span class="error-message" id="distrito-error"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="corregimiento" class="form-label">
+                        <i class="fas fa-map-marker-alt"></i>
+                        Corregimiento *
+                    </label>
+                    <input type="text" id="corregimiento" name="corregimiento" class="form-input" required>
+                    <span class="error-message" id="corregimiento-error"></span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="celular" class="form-label">
+                            <i class="fas fa-phone"></i>
+                            Celular (6000-0000) *
+                        </label>
+                        <input type="tel" id="celular" name="celular" class="form-input" placeholder="Ej: 6000-0000" required>
+                        <span class="error-message" id="celular-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email" class="form-label">
+                            <i class="fas fa-envelope"></i>
+                            Email *
+                        </label>
+                        <input type="email" id="email" name="email" class="form-input" required>
+                        <span class="error-message" id="email-error"></span>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    <i class="fas fa-paper-plane"></i>
+                    Enviar Registro
+                </button>
+
+                <div class="success-message" id="successMessage" style="display: none;">
+                    <i class="fas fa-check-circle"></i>
+                    ¡Registro enviado exitosamente!
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="script-simple.js"></script>
+</body>
+</html>
