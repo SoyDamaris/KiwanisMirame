@@ -1,5 +1,5 @@
 // Configuración de Google Sheets
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyk1PBlVP-gHHcjRSwykkK3BlZ85F1mi6F6FALnmPrd5-50RdGGAY3dbqkBGKo-PM50oQ/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyWkUAxZNcUpExzxEo9t970Ib8vlmLM84G0GVurni5s2ZpbVyYNazvboA_fqy2hcHYQSQ/exec';
 
 // Esperar a que el DOM esté cargado
 document.addEventListener('DOMContentLoaded', function() {
@@ -193,43 +193,81 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función para enviar a Google Sheets
     async function sendToGoogleSheets(data) {
-        try {
+        return new Promise((resolve) => {
             console.log('📤 Enviando datos a Google Sheets:', data);
             
-            const response = await fetch(GOOGLE_SHEETS_URL, {
+            // Método más simple y compatible: usar fetch con no-cors
+            // Google Apps Script funciona mejor con este método
+            fetch(GOOGLE_SHEETS_URL, {
                 method: 'POST',
-                mode: 'cors',
+                mode: 'no-cors',
+                cache: 'no-cache',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(data)
-            });
-            
-            console.log('📥 Respuesta recibida:', response);
-            
-            // Intentar leer la respuesta JSON
-            if (response.ok) {
-                const result = await response.json();
-                console.log('✅ Respuesta del servidor:', result);
+            })
+            .then(() => {
+                // Con no-cors no podemos leer la respuesta, pero si no hay error, asumimos éxito
+                console.log('✅ Datos enviados (modo no-cors)');
+                // Esperar un momento para que se procese en el servidor
+                setTimeout(() => {
+                    resolve({ 
+                        success: true, 
+                        message: 'Registro enviado correctamente. Los datos se guardarán en Google Sheets.' 
+                    });
+                }, 1000);
+            })
+            .catch((error) => {
+                console.error('❌ Error enviando datos:', error);
+                // Intentar método alternativo con XMLHttpRequest
+                console.log('⚠️ Intentando método alternativo...');
                 
-                if (result.success) {
-                    return { success: true, message: result.message || 'Registro guardado exitosamente' };
-                } else {
-                    return { success: false, message: result.error || 'Error al guardar el registro' };
-                }
-            } else {
-                // Si la respuesta no es OK, intentar leer el error
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', GOOGLE_SHEETS_URL, true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                
+                xhr.onload = function() {
+                    console.log('📥 Respuesta recibida. Status:', xhr.status);
+                    if (xhr.status === 200 || xhr.status === 0) {
+                        try {
+                            const result = JSON.parse(xhr.responseText);
+                            if (result.success) {
+                                resolve({ success: true, message: result.message || 'Registro guardado exitosamente' });
+                            } else {
+                                resolve({ success: false, message: result.error || 'Error al guardar el registro' });
+                            }
+                        } catch (e) {
+                            resolve({ success: true, message: 'Registro enviado. Verifica en Google Sheets.' });
+                        }
+                    } else {
+                        resolve({ success: false, message: `Error ${xhr.status}` });
+                    }
+                };
+                
+                xhr.onerror = function() {
+                    resolve({ 
+                        success: false, 
+                        message: 'Error de conexión. Verifica:\n1. Tu conexión a internet\n2. Que la URL sea correcta\n3. Que la app web tenga permisos "Cualquiera"' 
+                    });
+                };
+                
+                xhr.ontimeout = function() {
+                    resolve({ success: false, message: 'Tiempo de espera agotado. Intenta nuevamente.' });
+                };
+                
+                xhr.timeout = 30000;
+                
                 try {
-                    const errorData = await response.json();
-                    return { success: false, message: errorData.error || 'Error al enviar el formulario' };
-                } catch (e) {
-                    return { success: false, message: `Error ${response.status}: ${response.statusText}` };
+                    xhr.send(JSON.stringify(data));
+                } catch (sendError) {
+                    resolve({ 
+                        success: false, 
+                        message: 'Error al enviar. Verifica la configuración de Google Apps Script.' 
+                    });
                 }
-            }
-        } catch (error) {
-            console.error('❌ Error enviando datos:', error);
-            return { success: false, message: 'Error de conexión. Verifica tu conexión a internet.' };
-        }
+            });
+        });
     }
 
     // Event listener para el formulario

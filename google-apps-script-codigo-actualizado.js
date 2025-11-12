@@ -62,15 +62,46 @@ function doGet(e) {
  */
 function doPost(e) {
   try {
+    console.log('📥 Petición recibida');
+    console.log('Tipo de petición:', e.postData ? 'POST con datos' : 'POST sin datos');
+    
     // Obtener los datos del formulario
     let data;
     try {
-      data = JSON.parse(e.postData.contents);
+      // Intentar obtener datos de diferentes formas para mayor compatibilidad
+      if (e.postData && e.postData.contents) {
+        console.log('📝 Datos recibidos en postData.contents');
+        data = JSON.parse(e.postData.contents);
+      } else if (e.parameter && e.parameter.data) {
+        console.log('📝 Datos recibidos en parameter.data');
+        data = JSON.parse(e.parameter.data);
+      } else if (e.parameter) {
+        console.log('📝 Datos recibidos como parámetros individuales');
+        // Si los datos vienen como parámetros individuales
+        data = {
+          cidParticipante: e.parameter.cidParticipante || '',
+          primerNombre: e.parameter.primerNombre || '',
+          primerApellido: e.parameter.primerApellido || '',
+          fechaNacimiento: e.parameter.fechaNacimiento || '',
+          provincia: e.parameter.provincia || '',
+          distrito: e.parameter.distrito || '',
+          corregimiento: e.parameter.corregimiento || '',
+          celular: e.parameter.celular || '',
+          email: e.parameter.email || ''
+        };
+      } else {
+        console.error('❌ No se recibieron datos');
+        throw new Error('No se recibieron datos en la petición');
+      }
+      
+      console.log('✅ Datos parseados correctamente:', Object.keys(data));
     } catch (parseError) {
+      console.error('❌ Error al parsear datos:', parseError);
       return ContentService
         .createTextOutput(JSON.stringify({
           success: false,
-          error: 'Error al procesar los datos: ' + parseError.toString()
+          error: 'Error al procesar los datos: ' + parseError.toString(),
+          details: 'Verifica que los datos se envíen en formato JSON'
         }))
         .setMimeType(ContentService.MimeType.JSON);
     }
@@ -112,16 +143,35 @@ function doPost(e) {
     
     // Obtener la hoja de cálculo
     let spreadsheet;
-    if (SPREADSHEET_ID) {
-      spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-    } else {
-      spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    try {
+      if (SPREADSHEET_ID) {
+        console.log('📊 Abriendo hoja por ID:', SPREADSHEET_ID);
+        spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+      } else {
+        console.log('📊 Usando hoja activa');
+        spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+      }
+      
+      if (!spreadsheet) {
+        throw new Error('No se pudo abrir la hoja de cálculo');
+      }
+    } catch (spreadsheetError) {
+      console.error('❌ Error al abrir hoja:', spreadsheetError);
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'Error al acceder a la hoja de cálculo: ' + spreadsheetError.toString()
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
     
     // Obtener o crear la hoja de trabajo
     let sheet = spreadsheet.getSheetByName(SHEET_NAME);
     if (!sheet) {
+      console.log('📄 Creando nueva hoja:', SHEET_NAME);
       sheet = spreadsheet.insertSheet(SHEET_NAME);
+    } else {
+      console.log('📄 Usando hoja existente:', SHEET_NAME);
     }
     
     // Si es la primera vez, crear los encabezados
@@ -160,26 +210,47 @@ function doPost(e) {
     ];
     
     // Insertar los datos en la hoja
-    const newRow = sheet.getLastRow() + 1;
-    sheet.getRange(newRow, 1, 1, rowData.length).setValues([rowData]);
-    
-    // Formatear la nueva fila
-    formatDataRow(sheet, newRow, rowData.length);
-    
-    // Auto-ajustar el ancho de las columnas
-    sheet.autoResizeColumns(1, rowData.length);
-    
-    // Congelar la primera fila (encabezados)
-    sheet.setFrozenRows(1);
-    
-    // Aplicar filtros a los encabezados si no existen
-    if (sheet.getFilter() === null && sheet.getLastRow() > 1) {
-      sheet.getRange(1, 1, sheet.getLastRow(), rowData.length).createFilter();
-    }
-    
-    // Respuesta de éxito
-    return ContentService
-      .createTextOutput(JSON.stringify({
+    try {
+      const newRow = sheet.getLastRow() + 1;
+      console.log('💾 Insertando datos en la fila:', newRow);
+      
+      sheet.getRange(newRow, 1, 1, rowData.length).setValues([rowData]);
+      console.log('✅ Datos insertados correctamente');
+      
+      // Formatear la nueva fila
+      try {
+        formatDataRow(sheet, newRow, rowData.length);
+      } catch (formatError) {
+        console.warn('⚠️ Error al formatear fila (continuando):', formatError);
+      }
+      
+      // Auto-ajustar el ancho de las columnas
+      try {
+        sheet.autoResizeColumns(1, rowData.length);
+      } catch (resizeError) {
+        console.warn('⚠️ Error al ajustar columnas (continuando):', resizeError);
+      }
+      
+      // Congelar la primera fila (encabezados)
+      try {
+        sheet.setFrozenRows(1);
+      } catch (freezeError) {
+        console.warn('⚠️ Error al congelar filas (continuando):', freezeError);
+      }
+      
+      // Aplicar filtros a los encabezados si no existen
+      try {
+        if (sheet.getFilter() === null && sheet.getLastRow() > 1) {
+          sheet.getRange(1, 1, sheet.getLastRow(), rowData.length).createFilter();
+        }
+      } catch (filterError) {
+        console.warn('⚠️ Error al crear filtros (continuando):', filterError);
+      }
+      
+      console.log('✅ Proceso completado exitosamente');
+      
+      // Respuesta de éxito
+      const output = ContentService.createTextOutput(JSON.stringify({
         success: true,
         message: 'Registro guardado exitosamente en la base de datos',
         rowNumber: newRow,
@@ -188,8 +259,19 @@ function doPost(e) {
           cidParticipante: data.cidParticipante,
           nombre: data.primerNombre + ' ' + data.primerApellido
         }
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
+      }));
+      output.setMimeType(ContentService.MimeType.JSON);
+      return output;
+      
+    } catch (insertError) {
+      console.error('❌ Error al insertar datos:', insertError);
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'Error al guardar en la hoja: ' + insertError.toString()
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
       
   } catch (error) {
     // Log del error para debugging
