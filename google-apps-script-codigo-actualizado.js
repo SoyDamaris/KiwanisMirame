@@ -87,7 +87,8 @@ function doPost(e) {
           distrito: e.parameter.distrito || '',
           corregimiento: e.parameter.corregimiento || '',
           celular: e.parameter.celular || '',
-          email: e.parameter.email || ''
+          email: e.parameter.email || '',
+          tipoParticipacion: e.parameter.tipoParticipacion || ''
         };
       } else {
         console.error('❌ No se recibieron datos');
@@ -116,7 +117,8 @@ function doPost(e) {
       'distrito', 
       'corregimiento', 
       'celular', 
-      'email'
+      'email',
+      'tipoParticipacion'
     ];
     
     const missingFields = requiredFields.filter(field => !data[field] || data[field].toString().trim() === '');
@@ -205,6 +207,7 @@ function doPost(e) {
       capitalizeWords(data.corregimiento.toString().trim()),
       data.celular.toString().trim(),
       data.email.toString().trim().toLowerCase(),
+      data.tipoParticipacion.toString().trim(),
       formattedDate,
       timestamp // Para ordenamiento y filtros
     ];
@@ -303,6 +306,7 @@ function createHeaders(sheet) {
     'Corregimiento',
     'Celular',
     'Email',
+    '¿Cómo quieres participar?',
     'Fecha y Hora de Registro',
     'Timestamp (Ordenamiento)'
   ];
@@ -349,10 +353,10 @@ function formatDataRow(sheet, row, numColumns) {
   // Columna de fecha de nacimiento (columna 4)
   sheet.getRange(row, 4).setNumberFormat('dd/MM/yyyy');
   
-  // Columna de timestamp (columna 11) - ocultar esta columna
-  sheet.getRange(row, 11).setNumberFormat('yyyy-MM-dd HH:mm:ss');
+  // Columna de timestamp (columna 12) - ocultar esta columna
+  sheet.getRange(row, 12).setNumberFormat('yyyy-MM-dd HH:mm:ss');
   if (row === 2) {
-    sheet.hideColumns(11);
+    sheet.hideColumns(12);
   }
 }
 
@@ -474,7 +478,7 @@ function getFormStats() {
     let registrosEsteMes = 0;
     
     // Obtener timestamps de una vez
-    const timestamps = sheet.getRange(2, 11, lastRow - 1, 1).getValues();
+    const timestamps = sheet.getRange(2, 12, lastRow - 1, 1).getValues();
     
     timestamps.forEach(row => {
       const timestamp = row[0];
@@ -676,7 +680,7 @@ function organizarHoja() {
     sheet.setFrozenRows(1);
     
     // Ocultar columna de timestamp
-    sheet.hideColumns(11);
+    sheet.hideColumns(12);
     
     // Auto-ajustar columnas
     sheet.autoResizeColumns(1, numColumns);
@@ -689,6 +693,435 @@ function organizarHoja() {
     
   } catch (error) {
     console.error('Error organizando hoja:', error);
+    return {
+      success: false,
+      error: error.toString()
+    };
+  }
+}
+
+/**
+ * ============================================
+ * FUNCIONES DE BACKUP
+ * ============================================
+ * Estas funciones permiten crear backups de los datos
+ * sin afectar el funcionamiento normal del sistema
+ */
+
+/**
+ * Función para crear backup en una nueva hoja dentro del mismo spreadsheet
+ * Ejecuta esta función desde el editor de Apps Script para crear un backup
+ * El backup se guardará en una hoja nueva con nombre: "Backup_Registros_YYYY-MM-DD_HH-MM-SS"
+ */
+function crearBackupEnHoja() {
+  try {
+    console.log('🔄 Iniciando backup en hoja...');
+    
+    // Obtener el spreadsheet
+    let spreadsheet;
+    if (SPREADSHEET_ID) {
+      spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    } else {
+      spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    }
+    
+    if (!spreadsheet) {
+      return {
+        success: false,
+        error: 'No se pudo abrir la hoja de cálculo'
+      };
+    }
+    
+    // Obtener la hoja de registros
+    const sourceSheet = spreadsheet.getSheetByName(SHEET_NAME);
+    if (!sourceSheet) {
+      return {
+        success: false,
+        error: 'No se encontró la hoja de registros: ' + SHEET_NAME
+      };
+    }
+    
+    // Crear nombre para la hoja de backup con fecha y hora
+    const now = new Date();
+    const timeZone = Session.getScriptTimeZone();
+    const dateStr = Utilities.formatDate(now, timeZone, 'yyyy-MM-dd_HH-mm-ss');
+    const backupSheetName = `Backup_Registros_${dateStr}`;
+    
+    // Verificar si la hoja de backup ya existe y eliminarla (por si acaso)
+    const existingBackupSheet = spreadsheet.getSheetByName(backupSheetName);
+    if (existingBackupSheet) {
+      spreadsheet.deleteSheet(existingBackupSheet);
+    }
+    
+    // Copiar toda la hoja de registros
+    const backupSheet = sourceSheet.copyTo(spreadsheet);
+    backupSheet.setName(backupSheetName);
+    
+    // Ocultar la hoja de backup para no confundir a los usuarios
+    // Puedes comentar esta línea si quieres que sea visible
+    // backupSheet.hideSheet();
+    
+    console.log('✅ Backup creado en hoja:', backupSheetName);
+    
+    return {
+      success: true,
+      message: `Backup creado exitosamente en la hoja: ${backupSheetName}`,
+      backupSheetName: backupSheetName,
+      totalRows: sourceSheet.getLastRow(),
+      fecha: Utilities.formatDate(now, timeZone, 'dd/MM/yyyy HH:mm:ss')
+    };
+    
+  } catch (error) {
+    console.error('❌ Error creando backup en hoja:', error);
+    return {
+      success: false,
+      error: error.toString()
+    };
+  }
+}
+
+/**
+ * Función para crear backup como archivo CSV en Google Drive
+ * Ejecuta esta función desde el editor de Apps Script
+ * El archivo se guardará en la raíz de Google Drive o en una carpeta específica
+ */
+function crearBackupEnDrive() {
+  try {
+    console.log('🔄 Iniciando backup en Google Drive...');
+    
+    // Obtener el spreadsheet
+    let spreadsheet;
+    if (SPREADSHEET_ID) {
+      spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    } else {
+      spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    }
+    
+    if (!spreadsheet) {
+      return {
+        success: false,
+        error: 'No se pudo abrir la hoja de cálculo'
+      };
+    }
+    
+    // Obtener la hoja de registros
+    const sourceSheet = spreadsheet.getSheetByName(SHEET_NAME);
+    if (!sourceSheet) {
+      return {
+        success: false,
+        error: 'No se encontró la hoja de registros: ' + SHEET_NAME
+      };
+    }
+    
+    // Obtener todos los datos de la hoja
+    const data = sourceSheet.getDataRange().getValues();
+    
+    if (data.length === 0) {
+      return {
+        success: false,
+        error: 'No hay datos para respaldar'
+      };
+    }
+    
+    // Convertir datos a CSV
+    const csvContent = data.map(row => {
+      return row.map(cell => {
+        // Escapar comillas y envolver en comillas si contiene comas o saltos de línea
+        const cellValue = cell === null || cell === undefined ? '' : cell.toString();
+        if (cellValue.includes(',') || cellValue.includes('"') || cellValue.includes('\n')) {
+          return '"' + cellValue.replace(/"/g, '""') + '"';
+        }
+        return cellValue;
+      }).join(',');
+    }).join('\n');
+    
+    // Crear nombre del archivo con fecha y hora
+    const now = new Date();
+    const timeZone = Session.getScriptTimeZone();
+    const dateStr = Utilities.formatDate(now, timeZone, 'yyyy-MM-dd_HH-mm-ss');
+    const fileName = `Backup_KIWANIS_Registros_${dateStr}.csv`;
+    
+    // Crear archivo en Google Drive
+    const folder = DriveApp.getRootFolder(); // Guardar en la raíz, puedes cambiar esto
+    const file = folder.createFile(fileName, csvContent, MimeType.CSV);
+    
+    console.log('✅ Backup creado en Drive:', fileName);
+    
+    return {
+      success: true,
+      message: `Backup creado exitosamente en Google Drive: ${fileName}`,
+      fileName: fileName,
+      fileId: file.getId(),
+      fileUrl: file.getUrl(),
+      totalRows: data.length - 1, // Restar 1 por los encabezados
+      fecha: Utilities.formatDate(now, timeZone, 'dd/MM/yyyy HH:mm:ss')
+    };
+    
+  } catch (error) {
+    console.error('❌ Error creando backup en Drive:', error);
+    return {
+      success: false,
+      error: error.toString()
+    };
+  }
+}
+
+/**
+ * Función para crear backup completo del spreadsheet en Google Drive
+ * Esta función crea una copia completa del archivo de Google Sheets
+ */
+function crearBackupCompletoDrive() {
+  try {
+    console.log('🔄 Iniciando backup completo en Google Drive...');
+    
+    // Obtener el spreadsheet
+    let spreadsheet;
+    if (SPREADSHEET_ID) {
+      spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    } else {
+      spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    }
+    
+    if (!spreadsheet) {
+      return {
+        success: false,
+        error: 'No se pudo abrir la hoja de cálculo'
+      };
+    }
+    
+    // Crear nombre del archivo con fecha y hora
+    const now = new Date();
+    const timeZone = Session.getScriptTimeZone();
+    const dateStr = Utilities.formatDate(now, timeZone, 'yyyy-MM-dd_HH-mm-ss');
+    const fileName = `Backup_Completo_KIWANIS_${dateStr}`;
+    
+    // Crear copia del spreadsheet completo
+    const folder = DriveApp.getRootFolder(); // Guardar en la raíz, puedes cambiar esto
+    const file = DriveApp.getFileById(spreadsheet.getId());
+    const backupFile = file.makeCopy(fileName, folder);
+    
+    console.log('✅ Backup completo creado en Drive:', fileName);
+    
+    return {
+      success: true,
+      message: `Backup completo creado exitosamente en Google Drive: ${fileName}`,
+      fileName: fileName,
+      fileId: backupFile.getId(),
+      fileUrl: backupFile.getUrl(),
+      fecha: Utilities.formatDate(now, timeZone, 'dd/MM/yyyy HH:mm:ss')
+    };
+    
+  } catch (error) {
+    console.error('❌ Error creando backup completo:', error);
+    return {
+      success: false,
+      error: error.toString()
+    };
+  }
+}
+
+/**
+ * Función para crear backup múltiple (hoja + Drive CSV + Drive completo)
+ * Ejecuta esta función para crear todos los tipos de backup a la vez
+ */
+function crearBackupCompleto() {
+  try {
+    console.log('🔄 Iniciando backup completo (múltiples formatos)...');
+    
+    const results = {
+      backupHoja: null,
+      backupCSV: null,
+      backupCompleto: null,
+      fecha: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss')
+    };
+    
+    // 1. Backup en hoja
+    try {
+      results.backupHoja = crearBackupEnHoja();
+      console.log('✅ Backup en hoja:', results.backupHoja.success ? 'OK' : 'ERROR');
+    } catch (e) {
+      console.error('❌ Error en backup de hoja:', e);
+      results.backupHoja = { success: false, error: e.toString() };
+    }
+    
+    // 2. Backup CSV en Drive
+    try {
+      results.backupCSV = crearBackupEnDrive();
+      console.log('✅ Backup CSV:', results.backupCSV.success ? 'OK' : 'ERROR');
+    } catch (e) {
+      console.error('❌ Error en backup CSV:', e);
+      results.backupCSV = { success: false, error: e.toString() };
+    }
+    
+    // 3. Backup completo en Drive
+    try {
+      results.backupCompleto = crearBackupCompletoDrive();
+      console.log('✅ Backup completo:', results.backupCompleto.success ? 'OK' : 'ERROR');
+    } catch (e) {
+      console.error('❌ Error en backup completo:', e);
+      results.backupCompleto = { success: false, error: e.toString() };
+    }
+    
+    // Contar éxitos
+    const successes = [
+      results.backupHoja?.success,
+      results.backupCSV?.success,
+      results.backupCompleto?.success
+    ].filter(s => s === true).length;
+    
+    return {
+      success: successes > 0,
+      message: `Backup completo: ${successes} de 3 backups creados exitosamente`,
+      results: results,
+      totalSuccesses: successes
+    };
+    
+  } catch (error) {
+    console.error('❌ Error en backup completo:', error);
+    return {
+      success: false,
+      error: error.toString()
+    };
+  }
+}
+
+/**
+ * Función para programar backups automáticos
+ * Configura un trigger para ejecutar backups automáticamente
+ * Ejemplo: ejecutar backups mensuales el día 1 de cada mes a las 3:00 AM
+ */
+function configurarBackupAutomatico() {
+  try {
+    // Eliminar triggers existentes de backup para evitar duplicados
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'ejecutarBackupAutomatico') {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
+    
+    // Crear trigger para ejecutar backup mensual el día 1 de cada mes a las 3:00 AM
+    ScriptApp.newTrigger('ejecutarBackupAutomatico')
+      .timeBased()
+      .onMonthDay(1) // Día 1 de cada mes
+      .atHour(3) // 3:00 AM
+      .create();
+    
+    return {
+      success: true,
+      message: 'Backup automático configurado: se ejecutará mensualmente el día 1 de cada mes a las 3:00 AM',
+      tipo: 'Backup CSV en Drive',
+      frecuencia: 'Mensual'
+    };
+    
+  } catch (error) {
+    console.error('❌ Error configurando backup automático:', error);
+    return {
+      success: false,
+      error: error.toString()
+    };
+  }
+}
+
+/**
+ * Función que se ejecuta automáticamente por el trigger
+ * Esta función se llama desde el trigger programado
+ */
+function ejecutarBackupAutomatico() {
+  try {
+    console.log('🔄 Ejecutando backup automático...');
+    
+    // Por defecto, ejecutar backup CSV (más ligero)
+    const result = crearBackupEnDrive();
+    
+    if (result.success) {
+      console.log('✅ Backup automático completado:', result.fileName);
+      
+      // Opcional: Enviar notificación por email (requiere configuración)
+      // enviarNotificacionBackup(result);
+      
+      return result;
+    } else {
+      console.error('❌ Error en backup automático:', result.error);
+      return result;
+    }
+    
+  } catch (error) {
+    console.error('❌ Error ejecutando backup automático:', error);
+    return {
+      success: false,
+      error: error.toString()
+    };
+  }
+}
+
+/**
+ * Función para listar todos los backups existentes
+ * Muestra los backups de hojas y archivos de Drive
+ */
+function listarBackups() {
+  try {
+    const backups = {
+      hojas: [],
+      archivosDrive: [],
+      fechaConsulta: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss')
+    };
+    
+    // Listar hojas de backup
+    let spreadsheet;
+    if (SPREADSHEET_ID) {
+      spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    } else {
+      spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    }
+    
+    if (spreadsheet) {
+      const sheets = spreadsheet.getSheets();
+      sheets.forEach(sheet => {
+        if (sheet.getName().startsWith('Backup_Registros_')) {
+          backups.hojas.push({
+            nombre: sheet.getName(),
+            totalFilas: sheet.getLastRow() - 1,
+            ultimaModificacion: sheet.getParent().getLastRow() ? 'N/A' : 'N/A'
+          });
+        }
+      });
+    }
+    
+    // Listar archivos de backup en Drive
+    try {
+      const files = DriveApp.getRootFolder().getFiles();
+      while (files.hasNext()) {
+        const file = files.next();
+        const fileName = file.getName();
+        
+        if (fileName.startsWith('Backup_KIWANIS_') || fileName.startsWith('Backup_Completo_KIWANIS_')) {
+          backups.archivosDrive.push({
+            nombre: fileName,
+            fechaCreacion: Utilities.formatDate(file.getDateCreated(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
+            tamaño: file.getSize(),
+            url: file.getUrl(),
+            id: file.getId()
+          });
+        }
+      }
+    } catch (driveError) {
+      console.warn('⚠️ Error accediendo a Drive:', driveError);
+    }
+    
+    // Ordenar por nombre (fecha)
+    backups.hojas.sort((a, b) => b.nombre.localeCompare(a.nombre));
+    backups.archivosDrive.sort((a, b) => b.nombre.localeCompare(a.nombre));
+    
+    return {
+      success: true,
+      backups: backups,
+      totalHojas: backups.hojas.length,
+      totalArchivosDrive: backups.archivosDrive.length
+    };
+    
+  } catch (error) {
+    console.error('❌ Error listando backups:', error);
     return {
       success: false,
       error: error.toString()

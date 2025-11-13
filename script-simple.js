@@ -68,6 +68,10 @@ document.addEventListener('DOMContentLoaded', function() {
             required: true,
             pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
             errorMessage: 'Ingresa un correo electrónico válido'
+        },
+        tipoParticipacion: {
+            required: true,
+            errorMessage: 'Debes seleccionar cómo quieres participar'
         }
     };
 
