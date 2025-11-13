@@ -1129,3 +1129,118 @@ function listarBackups() {
   }
 }
 
+/**
+ * Función para actualizar hojas existentes con la nueva columna "¿Cómo quieres participar?"
+ * Ejecuta esta función si ya tienes registros en tu hoja y necesitas agregar la nueva columna
+ */
+function actualizarHojaConNuevaColumna() {
+  try {
+    console.log('🔄 Actualizando hoja con nueva columna...');
+    
+    // Obtener el spreadsheet
+    let spreadsheet;
+    if (SPREADSHEET_ID) {
+      spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    } else {
+      spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    }
+    
+    if (!spreadsheet) {
+      return {
+        success: false,
+        error: 'No se pudo abrir la hoja de cálculo'
+      };
+    }
+    
+    // Obtener la hoja de registros
+    const sheet = spreadsheet.getSheetByName(SHEET_NAME);
+    if (!sheet) {
+      return {
+        success: false,
+        error: 'No se encontró la hoja de registros: ' + SHEET_NAME
+      };
+    }
+    
+    const lastRow = sheet.getLastRow();
+    const lastColumn = sheet.getLastColumn();
+    
+    // Si no hay datos, solo crear los encabezados
+    if (lastRow === 0 || lastRow === 1) {
+      createHeaders(sheet);
+      return {
+        success: true,
+        message: 'Se crearon los encabezados con la nueva columna'
+      };
+    }
+    
+    // Verificar si ya existe la columna "¿Cómo quieres participar?"
+    const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+    const columnIndex = headers.indexOf('¿Cómo quieres participar?');
+    
+    if (columnIndex !== -1) {
+      return {
+        success: true,
+        message: 'La columna "¿Cómo quieres participar?" ya existe en la columna ' + (columnIndex + 1),
+        columnIndex: columnIndex + 1
+      };
+    }
+    
+    // Insertar la nueva columna después de Email (columna 9)
+    // Mover columnas después de Email hacia la derecha
+    if (lastColumn >= 9) {
+      // Insertar nueva columna en la posición 10 (después de Email)
+      sheet.insertColumnAfter(9); // Insertar después de Email (columna 9)
+      
+      // Establecer el encabezado
+      sheet.getRange(1, 10).setValue('¿Cómo quieres participar?');
+      
+      // Formatear el encabezado
+      const headerRange = sheet.getRange(1, 10);
+      headerRange.setFontWeight('bold');
+      headerRange.setBackground('#2563eb');
+      headerRange.setFontColor('#ffffff');
+      headerRange.setHorizontalAlignment('center');
+      headerRange.setVerticalAlignment('middle');
+      
+      // Formatear las filas de datos vacías
+      for (let i = 2; i <= lastRow; i++) {
+        const cellRange = sheet.getRange(i, 10);
+        if (i % 2 === 0) {
+          cellRange.setBackground('#f8fafc');
+        } else {
+          cellRange.setBackground('#ffffff');
+        }
+        cellRange.setBorder(true, true, true, true, true, true, '#e5e7eb', SpreadsheetApp.BorderStyle.SOLID);
+        cellRange.setVerticalAlignment('middle');
+      }
+      
+      // Ajustar ancho de la nueva columna
+      sheet.autoResizeColumns(10, 1);
+      
+      console.log('✅ Nueva columna agregada exitosamente');
+      
+      return {
+        success: true,
+        message: 'Columna "¿Cómo quieres participar?" agregada exitosamente en la columna 10',
+        totalRows: lastRow - 1,
+        nuevaColumna: 10
+      };
+    } else {
+      // Si no hay suficientes columnas, simplemente agregar al final
+      sheet.getRange(1, lastColumn + 1).setValue('¿Cómo quieres participar?');
+      return {
+        success: true,
+        message: 'Columna agregada al final de la hoja',
+        nuevaColumna: lastColumn + 1
+      };
+    }
+    
+  } catch (error) {
+    console.error('❌ Error actualizando hoja:', error);
+    return {
+      success: false,
+      error: error.toString()
+    };
+  }
+}
+
